@@ -1,0 +1,23 @@
+This file is one of many created by or found by James Lee
+<jml@jmlzone.com> to help with the new horizon model for stellafane 2016.
+
+All the original files are CopyLeft 2016 James Lee permission is here
+by given to use these files for educational and non-commercial use.
+For commercial or other use please contact the author as indicated in
+the file or jml@jmlzone.com
+
+The files to make the project work are distributed in particular
+locations to make them work in the system.
+
+Files:       	  Authorship     	       description
+mlx2.c 	     	  Adapted by James Lee   program to read and log the thermal sensor
+thermalPlot.sh 	  James Lee   	    Shell script to make plots and locate them
+tpPlot.sh 	  James Lee   	    Shell script to make plots and locate them
+index.html     	  James Lee	    Root html to control the model
+cgi_handlers.pl   James Tappin: sjt@xun8.sr.bham.ac.uk
+deleteAll.sh	  James Lee	Clean up all the old mission data
+launch.sh	  James Lee	Kick off the main python code
+missionParams.pl  James Lee	Edit the mission parameters
+spaceprobe.py	  James Lee	main ptython program for the model
+pinglog.py	  James Lee	Python program to run the ultrasonic ranger
+README_doit	  James Lee	Configuration instructions for setting eveything on on raspian Jesse

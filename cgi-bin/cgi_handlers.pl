@@ -1,0 +1,276 @@
+# The CGI_HANDLERS deal with basic CGI POST or GET method request
+# elements such as those delivered by an HTTPD form, i.e. a url
+# encoded line of "=" separated key=value pairs separated by &'s
+
+# Routines:
+# get_request:	reads the request and returns both the raw and
+#               processed version.
+# url_decode:	URL decodes a string or array of strings
+# html_header:	Transmits a HTML header back to the caller
+# html_trailer: Transmits a HTML trailer back to the caller
+# htlm_footer:  Transmits a HTML trailer, plus a button that
+#               points to a comment program
+
+# Author:
+# 	James Tappin: sjt@xun8.sr.bham.ac.uk
+#	School of Physics & Space Research University of Birmingham
+#	Feb 1993.		
+
+# Copyright & Disclaimer.
+#	This set of routines may be freely distributed, modified and
+#	used, provided this copyright & disclaimer remains intact.
+#	This package is used at your own risk, if it does what you
+#	want, good; if it doesn't, modify it or use something else--but
+#	don't blame me. Support level = negligable (i.e. mail bugs but
+#	not requests for extensions)
+
+# Usage:
+#	needs a 'require "cgi_handlers.pl";' line in the main script
+#
+#	&get_request;    will get the request and decode it into an
+#			 indexed array %rqpairs, the raw request is in
+#			 $request
+#
+#	... = &url_decode(LIST); will return a URL decoded version of
+#			         the contents of LIST
+#
+#	&html_header(TITLE); 	will write to standard output an HTML
+#				header (including the content-type
+#				field) giving the document the title
+#				specified by TITLE.
+#
+#	&html_trailer;		Writes a trailer to the html document
+#				with the name of the script generating
+#				it and the date (in UT).
+
+sub get_access_count {
+    #  Returns the number of times the script has been called.  
+    #  Assumes that access_count is compiled and installed.
+    # 
+    $ENV{DOCUMENT_URI} = $ENV{SCRIPT_NAME};
+    `/usr/local/etc/httpd/support/access_count`;
+}
+
+sub get_request2 {
+
+    #  Works like get_request, except when there are multiple instances
+    #  of the same name.  Example, you could have this:
+    # 
+    #       To=ericw&To=dano&To=joec
+    #
+    #  get_request would return $rqpairs{'To'}=joec while
+    #  get_request2 returns $rqpairs{'To'}=ericw:dano:joec
+    #
+
+    if ($ENV{'REQUEST_METHOD'} eq "POST") {
+	read(STDIN, $request, $ENV{'CONTENT_LENGTH'});
+    } elsif ($ENV{'REQUEST_METHOD'} eq "GET" ) {
+	$request = $ENV{'QUERY_STRING'};
+    }
+
+    foreach $pair (split(/&/, $request)) {
+        ($name,$value) = split(/=/,$pair);
+ 
+	if ($rqpairs{$name}) {
+	    $rqpairs{$name} = "$rqpairs{$name}:$value";
+	} else {
+	    $rqpairs{$name} = $value;
+	}
+    }
+    %rqpairs = &url_decode(%rqpairs);
+}
+ 
+
+
+sub get_request {
+
+    # Subroutine get_request reads the POST or GET form request from STDIN
+    # into the variable  $request, and then splits it into its
+    # name=value pairs in the associative array %rqpairs.
+    # The number of bytes is given in the environment variable
+    # CONTENT_LENGTH which is automatically set by the request generator.
+
+    # Encoded HEX values and spaces are decoded in the values at this
+    # stage.
+
+    # $request will contain the RAW request. N.B. spaces and other
+    # special characters are not handler in the name field.
+
+    if ($ENV{'REQUEST_METHOD'} eq "POST") {
+	read(STDIN, $request, $ENV{'CONTENT_LENGTH'});
+    } elsif ($ENV{'REQUEST_METHOD'} eq "GET" ) {
+	$request = $ENV{'QUERY_STRING'};
+    }
+
+    %rqpairs = &url_decode(split(/[&=]/, $request));
+}
+
+sub url_decode {
+
+#	Decode a URL encoded string or array of strings 
+#		+ -> space
+#		%xx -> character xx
+
+    foreach (@_) {
+	tr/+/ /;
+	s/%(..)/pack("c",hex($1))/ge;
+    }
+    @_;
+}
+
+
+sub html_header {
+
+    # Subroutine html_header sends to Standard Output the necessary
+    # material to form an HHTML header for the document to be
+    # returned, the single argument is the TITLE field.
+
+    local($title) = @_;
+
+    print "Content-type: text/html\n\n";
+    print "<html><head>\n";
+    print "<title>$title</title>\n";
+    print "</head>\n<body>\n";
+}
+
+sub html_footer {
+
+    # Used for programs.
+
+    local($owner) = @_;
+
+    print "<hr><hr>\n";
+
+    if ($owner) {
+       
+       # Get the full name of the owner
+       ($j1,$j2,$j3,$j4,$fullName) =
+	     split(/:/,`ypmatch $owner passwd 2>/dev/null`);
+       
+       # If the owner is not in the password file, don't use full name
+       $fullName = $owner if (! $fullName);
+
+       print "<p><A HREF=\"http://www-sd/cgi-bin/comments?$owner\">";
+       print "Send a comment </a> to <I> $fullName</I>, ";
+       print "the owner of this page.";
+    } 
+
+    local($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst)
+	= gmtime;
+
+    local($mname) = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
+		     "Aug", "Sep", "Oct", "Nov", "Dec")[$mon];
+    local($dname) = ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri",
+		     "Sat")[$wday]; 
+
+    print "<p>\nGenerated by: <var>$0</var><br>\n";
+    $hours = "0$hour" if( $hour < 10 );
+    $min   = "0$min"  if( $min  < 10 );
+    $sec   = "0$sec"  if( $sec  < 10 );
+    print "Date: $hour:$min:$sec UT on $dname $mday $mname $year<br>\n";
+
+    ($prog_name = $0) =~ s|^.*/(.*)|$1|;   # Keep only base name
+    print "<A HREF=\"http:/cgi-bin/accessCk.pl?$prog_name\">Review access</a>\n";
+    print "<p></body></html>\n";
+}
+
+
+sub html_static_footer {
+
+    # This routine works like html_footer, but is meant for use
+    # in generating static html docs, rather than programmed
+    # html output from a perl script.
+
+    local($owner,$page) = @_;
+
+    print "<hr><hr>\n";
+
+    if ($owner) {
+       
+       # Get the full name of the owner
+       ($j1,$j2,$j3,$j4,$fullName) =
+	     split(/:/,`ypmatch $owner passwd 2>/dev/null`);
+       
+       # If the owner is not in the password file, don't use full name
+       $fullName = $owner if (! $fullName);
+
+       print "<p><A HREF=\"http://www-sd/cgi-bin/comments?$owner\">";
+       print "Send a comment </a> to <I> $fullName</I>, ";
+       print "the owner of this page.";
+    } 
+
+
+    local($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst)
+	= gmtime;
+
+    local($mname) = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
+		     "Aug", "Sep", "Oct", "Nov", "Dec")[$mon];
+    local($dname) = ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri",
+		     "Sat")[$wday]; 
+
+    print "<p>\nGenerated by: <var>$0</var><br>\n";
+    $hours = "0$hour" if( $hour < 10 );
+    $min   = "0$min"  if( $min  < 10 );
+    $sec   = "0$sec"  if( $sec  < 10 );
+    print "Date: $hour:$min:$sec UT on $dname $mday $mname $year<br>\n";
+    print "Access count: ";
+    print "<!--#exec cmd=\"/usr/local/etc/httpd/support/access_count\" -->";
+    if ($page) {
+       print "<br>\n";
+       print "<A HREF=\"http:/cgi-bin/accessCk.pl?$page\">Review access</a>\n";
+    }
+    print "<p></body></html>\n";
+}
+
+sub html_trailer {
+
+    # subroutine html_trailer sends the trailing material to the HTML
+    # on STDOUT.
+
+    local($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst)
+	= gmtime;
+
+    local($mname) = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
+		     "Aug", "Sep", "Oct", "Nov", "Dec")[$mon];
+    local($dname) = ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri",
+		     "Sat")[$wday]; 
+
+    print "<p>\nGenerated by: <var>$0</var><br>\n";
+    $hours = "0$hour" if( $hour < 10 );
+    $min   = "0$min"  if( $min  < 10 );
+    $sec   = "0$sec"  if( $sec  < 10 );
+    print "Date: $hour:$min:$sec UT on $dname $mday $mname $year.<p>\n";
+    print "</body></html>\n";
+}
+
+sub html_flastmod {
+    # Subroutine html_flastmod outputs the last modification date
+    # of the specified file on stdout.
+
+    local( $file ) = @_;
+    local( @stats, $ltime, $sec, $min, $hour, $mday, $mon, $year, $wday, $isdst);
+    @stats = stat( "$file" );
+
+    if( $#stats >= 0 ) {
+	$ltime = $stats[9];	# Modification time item
+
+	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
+	    gmtime($ltime);
+
+	local($mname) = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
+		     "Aug", "Sep", "Oct", "Nov", "Dec")[$mon];
+	local($dname) = ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri",
+		     "Sat")[$wday]; 
+
+	$hour = "0$hour" if( $hour < 10 );
+	$min  = "0$min"  if( $min < 10 );
+	$sec  = "0$sec"  if( $sec < 10 );
+
+	print "<p>\nFile: <var>$file</var><br>\n";
+        print "Updated: $hour:$min:$sec UT on $dname $mday $mname $year.<p>\n";
+    } else {
+	printf "Unable to determine time stats for: %s<br>\n",
+	    $file;
+    }
+}
+1;

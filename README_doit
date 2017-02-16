@@ -1,0 +1,83 @@
+#
+# copyleft 2016 James Lee jml@jmlzone.com
+# This file is one of many created by or found by James Lee
+# <jml@jmlzone.com> to help with the new horizon model for stellafane 2016.
+#
+# All the original files are CopyLeft 2016 James Lee permission is here
+# by given to use these files for educational and non-commercial use.
+# For commercial or other use please contact the author as indicated in
+# the file or jml@jmlzone.com
+#
+#
+# This is what you need to do to set it all up
+#
+#sudo apt-get update
+#sudo apt-get -y upgrade
+#
+sudo apt-get -y install apache2
+sudo apt-get -y install gnuplot
+#
+#sudo raspi-config
+#    be sure to set the hostname nd1-nh5
+#    be sure to enable the camera
+#
+#
+# scp nh_stage.tar.gz pi@....
+#
+# on the pi
+# tar xfz nh_stage.tar.gz
+#
+
+echo "Setup the C directory"
+mkdir c
+cd c
+wget http://www.airspayce.com/mikem/bcm2835/bcm2835-1.50.tar.gz
+tar xfz bcm2835-1.50.tar.gz 
+cd bcm2835-1.50/
+./configure
+make
+sudo make check
+sudo make install
+
+cd ~
+cp nh_stage/c/* ~/c
+cd ~/c
+gcc mlx2.c -o mlx2 -l bcm2835
+chmod a+x thermalPlot.sh
+chmod a+x tpPlot.sh
+
+echo "----------------------------------------------------------------------"
+echo "set up main python in nh directory"
+cd ~
+mkdir nh
+cp nh_stage/nh/* ~/nh
+chmod a+x nh/*
+echo "----------------------------------------------------------------------"
+echo "set up html"
+sudo mkdir /var/www/html/missions
+sudo chmod a+w /var/www/html/missions
+sudo cp nh_stage/html/* /var/www/html
+sudo chmod a+r /var/www/html/*
+echo "----------------------------------------------------------------------"
+echo "set up cgi-bin"
+sudo cp nh_stage/cgi-bin/* /usr/lib/cgi-bin
+sudo chmod a+r /usr/lib/cgi-bin/*
+echo "----------------------------------------------------------------------"
+echo "modify /etc/apache2/envvars"
+sudo sed --in-place=.bck '{s/www-data/pi/}' /etc/apache2/envvars
+sudo sed --in-place=.bck '{s/AddOutputFilterByType DEFLATE text\/html text\/plain text\/xml/#AddOutputFilterByType DEFLATE text\/html text\/plain text\/xml/}' /etc/apache2/mods-enabled/deflate.conf 
+cd /etc/apache2/mods-enabled
+sudo ln -s ../mods-available/cgi.load
+echo "----------------------------------------------------------------------"
+echo "restart apache"
+sudo /etc/init.d/apache2 restart
+echo "----------------------------------------------------------------------"
+echo "setup networking"
+cd ~
+sudo cp nh_stage/wpa/wpa_supplicant.conf /etc/wpa_supplicant/wpa_supplicant.conf
+sudo chmod 600  /etc/wpa_supplicant/wpa_supplicant.conf
+echo "----------------------------------------------------------------------"
+echo "----------------------------------------------------------------------"
+echo "all_done"
+
+
