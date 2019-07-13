@@ -331,9 +331,9 @@ if mode != 'time' :
 
 pMlx=subprocess.Popen(['/home/pi/c/mlx2'])
 pPing=subprocess.Popen(['python', '/home/pi/nh/pinglog.py'])
-GPIO.output(optionPin,GPIO.HIGH)
 time.sleep(0.25)
 launch()
+GPIO.output(optionPin,GPIO.HIGH)
 sys.stdout.flush()
 launch_time = getTravelTime()
 # we now use approach as the launch position camApproach()
@@ -350,10 +350,12 @@ for event in config:
     if event_name != lastName :
         m.approach()
 
-GPIO.output(optionPin,GPIO.LOW)
 camera.close()
 pMlx.kill()
 pPing.kill()
+time.sleep(5.0)
+GPIO.output(optionPin,GPIO.LOW)
+time.sleep(0.25)
 GPIO.cleanup()
 print "Writing mission page"
 sys.stdout.flush()
