@@ -21,7 +21,6 @@ my $missionMode;
 my $configFile = "/var/www/html/missions/config.txt";
 use Sys::Hostname;
 my $hostname = hostname;
-
 ($mode = $ARGV[0]) =~ s/:.*$//;
 &get_request;
 if($mode =~ /^post$/){
@@ -131,6 +130,9 @@ print <<EOF;
 </table>
     <input type="radio" name="missionMode" value="time" $timechecked> Elapsed time from launch
     <input type="radio" name="missionMode" value="odo" $odochecked> Odometry <br>
+    <input type="radio" name="adjustTargetCount" value="add" > Add Row 
+    <input type="radio" name="adjustTargetCount" value="del" > Delete Row 
+    <input type="radio" name="adjustTargetCount" value="none" "checked" > (none)  <br>
 <input type="hidden" name="rows" value="$rows">
 <input type="hidden" name="cols" value="$cols">
     <input type="submit"value="Save" />
@@ -154,6 +156,18 @@ EOF
 sub post{
     $rows = $rqpairs{"rows"};
     $cols = $rqpairs{"cols"};
+    $adjust = $rqpairs{"adjustTargetCount"};
+    if($adjust=~"del") {
+	$rows=$rows-1;
+    } elsif($adjust=~"add") {
+	$rqpairs{"r${rows}c0"} = "new$rows";
+	$rqpairs{"r${rows}c1"} = "1";
+	$rqpairs{"r${rows}c2"} = "1";
+	$rqpairs{"r${rows}c3"} = "1";
+	$rqpairs{"r${rows}c4"} = "1";
+	$rqpairs{"r${rows}c5"} = "hd";
+	$rows=$rows+1;
+    }
     @steps = ($rqpairs{"steps0"},$rqpairs{"steps1"},$rqpairs{"steps2"});
     $missionMode = $rqpairs{"missionMode"};
     &html_header("Mission Paramaters Processed");
