@@ -22,7 +22,8 @@ import os.path
 import RPi.GPIO as GPIO
 import subprocess
 import sys
-import Adafruit_PCA9685
+import smbus
+import PCA9685
 from threading import Timer
 
 class board:
@@ -40,14 +41,19 @@ class board:
             "propulsion" : 31,
             "cameraMotor" : [32,40,38,36]
         }
-        # see if we have an i2c pwm at xxx
+        # see if we have an i2c pwm at 40
+        self.i2cBus=smbus.SMBus(1)
         try:
-            self.i2cBus.write_byte_data(GPIOEX1, IODIR,0) # port as output
+            self.i2cBus.read_byte_data(0x40,0) # try a read
+            self.havePWM = True
+            self.pwm=PCA9685.PCA9685(i2c=self.i2cBus)
+            self.board='cbp2019'
         except:
-            self.haveIO[GPIOEX1] = False
+            print(" could not access i2c ", sys.exc_info()[0])
+            self.havePWM = False
+            self.board='nh2016'
 
-        myBoard='nh2016'
-        self.ioPinDict = ioPinDict[myboard]
+        self.ioPinDict = ioPinDict[self.board]
         self.htmlRoot = "/var/www/html"
 
 

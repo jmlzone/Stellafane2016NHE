@@ -14,12 +14,12 @@
 #sudo apt-get update
 #sudo apt-get -y upgrade
 #
-sudo apt-get -y install apache2
-sudo apt-get -y install gnuplot
+sudo apt-get -y install apache2 gnuplot emacs python-smbus python3-smbus i2c-tools
 #
 #sudo raspi-config
 #    be sure to set the hostname nd1-nh5
 #    be sure to enable the camera
+#    be sure to enable and I2C
 #
 #
 # scp nh_stage.tar.gz pi@....
@@ -62,6 +62,9 @@ echo "----------------------------------------------------------------------"
 echo "set up cgi-bin"
 sudo cp nh_stage/cgi-bin/* /usr/lib/cgi-bin
 sudo chmod a+r /usr/lib/cgi-bin/*
+sudo mkdir /usr/local/lib/site_perl
+sudo chmod a+rx /usr/local/lib/site_perl
+sudo cp nh_stage/cgi-bin/cgi_handlers.pl /usr/local/lib/site_perl
 echo "----------------------------------------------------------------------"
 echo "modify /etc/apache2/envvars"
 sudo sed --in-place=.bck '{s/www-data/pi/}' /etc/apache2/envvars
