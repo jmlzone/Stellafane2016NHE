@@ -22,27 +22,34 @@ import os.path
 import RPi.GPIO as GPIO
 import subprocess
 import sys
+import Adafruit_PCA9685
 from threading import Timer
 
+class board:
+    def __init__ (self):
+        ioPinDict = dict()
+        ioPinDict['nh2016'] = {
+            "pinger" : {"trigger" : 12, "echo" : 16},
+            "odometer" : 22,
+            "propulsion" : 18,
+            "cameraMotor" : [32,40,38,36]
+        }
+        ioPinDict['cbp2019'] = {
+            "pinger" : {"trigger" : 11, "echo" : 13},
+            "odometer" : 29,
+            "propulsion" : 31,
+            "cameraMotor" : [32,40,38,36]
+        }
+        # see if we have an i2c pwm at xxx
+        try:
+            self.i2cBus.write_byte_data(GPIOEX1, IODIR,0) # port as output
+        except:
+            self.haveIO[GPIOEX1] = False
 
-hostname = socket.gethostname()
-# used in the pinger program:
-#trigpin = 12
-#echopin = 16
+        myBoard='nh2016'
+        self.ioPinDict = ioPinDict[myboard]
+        self.htmlRoot = "/var/www/html"
 
-optionPin = 18
-# pin 20 is a ground
-odoPin = 22
-odoCtr = 0
-# initialize camera
-camera = picamera.PiCamera()
-cam_pos = "ready"
-mode = "time"
-#for Raspian Wheezy
-#htmlRoot = "/var/www"
-# updated for latest raspian
-htmlRoot = "/var/www/html"
-configRoot = htmlRoot + "/missions"
 
 class Watchdog:
     def __init__(self, timeout, userHandler=None):  # timeout in seconds
@@ -64,8 +71,8 @@ class Watchdog:
         raise self
 
 class motor(object) :
-    def __init__ (self) :
-        self.motorPins = [32,40,38,36]
+    def __init__ (self,pins) :
+        self.motorPins = pins
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup(self.motorPins, GPIO.OUT)
         GPIO.output(self.motorPins,GPIO.LOW)    
@@ -301,72 +308,91 @@ def buildMissionWebPage():
     os.symlink(myMission,missionPath)
     
 # main program starts here
-GPIO.setmode(GPIO.BOARD)
-GPIO.setup(odoPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(optionPin, GPIO.OUT)
-GPIO.add_event_detect(odoPin, GPIO.FALLING, callback=odo, bouncetime=30)
-GPIO.output(optionPin,GPIO.LOW)
+if __name__ == '__main__':
+    hostname = socket.gethostname()
 
-m=motor()
+    odoCtr = 0
+    # initialize camera
+    try:
+        camera = picamera.PiCamera()
+    except:
+        print("Oops camera did not initilize, In use or bad camera")
+        exit(-1)
+    cam_pos = "ready"
+    mode = "time"
+    b=board()
+    htmlRoot = b.htmlRoot
+    configRoot = htmlRoot + "/missions"
+    # used in the pinger program:
+    trigpin = b.ioPinDict['pinger']['trigger']
+    echopin = b.ioPinDict['pinger']['echo']
 
-#if(option==0) :
-#    m.reverse = 1
+    optionPin = b.ioPinDict['propulsion']
+    # pin 20 is a ground
+    odoPin = b.ioPinDict['odometer']
+    motorPins = b.ioPinDict['cameraMotor']
+    
+    GPIO.setmode(GPIO.BOARD)
+    GPIO.setup(odoPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.setup(optionPin, GPIO.OUT)
+    GPIO.add_event_detect(odoPin, GPIO.FALLING, callback=odo, bouncetime=30)
+    GPIO.output(optionPin,GPIO.LOW)
+    m=motor(motorPins)
+    sequence = sequenceNumber()
+    print "Preparing for launch of %s sequence %s" % (hostname, sequence)
+    sys.stdout.flush()
+    config = getConfig()
+    print "Using steps:"
+    print " Approach: %d" % m.approachSteps 
+    print " Normal: %d" % m.normSteps
+    print " Depart: %d" % m.departSteps
 
-sequence = sequenceNumber()
-print "Preparing for launch of %s sequence %s" % (hostname, sequence)
-sys.stdout.flush()
-config = getConfig()
-print "Using steps:"
-print " Approach: %d" % m.approachSteps 
-print " Normal: %d" % m.normSteps
-print " Depart: %d" % m.departSteps
+    configCamera(camera)
+    camera.framerate = 30
+    camera.start_preview()
+    time.sleep(2)
+    if mode != 'time' :
+        w = Watchdog (10, odoTimeout)
+        print "Set watchdog"
 
-configCamera(camera)
-camera.framerate = 30
-camera.start_preview()
-time.sleep(2)
-if mode != 'time' :
-    w = Watchdog (10, odoTimeout)
-    print "Set watchdog"
+    pMlx=subprocess.Popen(['/home/pi/c/mlx2'])
+    pPing=subprocess.Popen(['python', '/home/pi/nh/pinglog.py', '--triggerpin', trigpin , '--echopin', echopin])
+    time.sleep(0.25)
+    launch()
+    GPIO.output(optionPin,GPIO.HIGH)
+    sys.stdout.flush()
+    launch_time = getTravelTime()
+    # we now use approach as the launch position camApproach()
+    lastName = config[-1][0]
+    for event in config:
+        event_name = event[0]
+        event_time = float(event[1])
+        norm_time = float(event[2])
+        depart_time = float(event[3])
+        event_num_pic = int(event[4])
+        event_camMode = bool(int(event[5]))
+        travelTo(event_time,event_name)
+        capture(event_name, event_num_pic, event_camMode, norm_time, depart_time)
+        if event_name != lastName :
+            m.approach()
 
-pMlx=subprocess.Popen(['/home/pi/c/mlx2'])
-pPing=subprocess.Popen(['python', '/home/pi/nh/pinglog.py'])
-time.sleep(0.25)
-launch()
-GPIO.output(optionPin,GPIO.HIGH)
-sys.stdout.flush()
-launch_time = getTravelTime()
-# we now use approach as the launch position camApproach()
-lastName = config[-1][0]
-for event in config:
-    event_name = event[0]
-    event_time = float(event[1])
-    norm_time = float(event[2])
-    depart_time = float(event[3])
-    event_num_pic = int(event[4])
-    event_camMode = bool(int(event[5]))
-    travelTo(event_time,event_name)
-    capture(event_name, event_num_pic, event_camMode, norm_time, depart_time)
-    if event_name != lastName :
-        m.approach()
-
-camera.close()
-pMlx.kill()
-pPing.kill()
-time.sleep(5.0)
-GPIO.output(optionPin,GPIO.LOW)
-time.sleep(0.25)
-GPIO.cleanup()
-print "Writing mission page"
-sys.stdout.flush()
-buildMissionWebPage()
-print "Plotting Data"
-#pargs = ['/home/pi/c/thermalPlot.sh', sequence]
-pargs = ['/home/pi/c/tpPlot.sh', sequence]
-p=subprocess.Popen( pargs )
-p.wait()
-print "Mission page complete"
-print "Use your browser back button, then view the mission index or most recent mission." 
+    camera.close()
+    pMlx.kill()
+    pPing.kill()
+    time.sleep(5.0)
+    GPIO.output(optionPin,GPIO.LOW)
+    time.sleep(0.25)
+    GPIO.cleanup()
+    print "Writing mission page"
+    sys.stdout.flush()
+    buildMissionWebPage()
+    print "Plotting Data"
+    #pargs = ['/home/pi/c/thermalPlot.sh', sequence]
+    pargs = ['/home/pi/c/tpPlot.sh', sequence]
+    p=subprocess.Popen( pargs )
+    p.wait()
+    print "Mission page complete"
+    print "Use your browser back button, then view the mission index or most recent mission." 
 
 ### end ###
 

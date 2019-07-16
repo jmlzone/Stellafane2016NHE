@@ -3,7 +3,7 @@ import sys
 import time
 import RPi.GPIO as GPIO
 
-
+#Note: import motor and board config from spaceProbe, when updated.
 class motor(object) :
     def __init__ (self) :
         self.motorPins = [32,40,38,36]

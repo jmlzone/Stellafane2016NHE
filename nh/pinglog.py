@@ -16,13 +16,34 @@ import datetime
 import os
 import sys
 import signal
+from optparse import OptionParser
 def sigterm_handler(_signo, _stack_frame):
     # Raises SystemExit(0):
     sys.exit(0)
-    
+
+def createParser ():
+    usage = "Usage %s [options]" %__file__
+    parser = OptionParser(usage)
+    parser.add_option("--triggerpin", "-t",
+                      dest = "trigpin",
+                      default = 12,
+                      action = "store",
+                      type = "int",
+                      help = "board pin to use for pinger trigger"
+                      )
+    parser.add_option("--echopin", "-e",
+                      dest = "echopin",
+                      default = 16,
+                      action = "store",
+                      type = "int",
+                      help = "board pin to use for pinger echo"
+                      )
+    return(parser)
+parser = createParser()
+options,args=parser.parse_args()
 GPIO.setmode(GPIO.BOARD)
-trigpin = 12
-echopin = 16
+trigpin = options.trigpin
+echopin = options.echopin
 GPIO.setup(trigpin,GPIO.OUT)
 GPIO.setup(echopin,GPIO.IN)
 GPIO.output(trigpin, False)
