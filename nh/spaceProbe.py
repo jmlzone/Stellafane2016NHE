@@ -53,6 +53,7 @@ class board:
             self.havePWM = False
             self.board='nh2016'
 
+        print("Detected board type %s" % self.board)
         self.ioPinDict = ioPinDict[self.board]
         self.htmlRoot = "/var/www/html"
 
