@@ -362,7 +362,8 @@ if __name__ == '__main__':
         print "Set watchdog"
 
     pMlx=subprocess.Popen(['/home/pi/c/mlx2'])
-    pPing=subprocess.Popen(['python', '/home/pi/nh/pinglog.py', '--triggerpin', trigpin , '--echopin', echopin])
+    pingArgs = ['python', '/home/pi/nh/pinglog.py', '--triggerpin', "%s" % trigpin , '--echopin', "%s" % echopin]
+    pPing=subprocess.Popen(pingArgs)
     time.sleep(0.25)
     launch()
     GPIO.output(optionPin,GPIO.HIGH)
